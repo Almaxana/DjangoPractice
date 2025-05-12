@@ -1,7 +1,8 @@
 from django.shortcuts import render
 
-def index(request):
-    return render(request, 'main/index.html')
+from .models import TimeSheetItem
 
-def about(request):
-    return render(request, 'main/about.html')
+
+def main_home(request):
+    timeSheet = TimeSheetItem.objects.order_by('-date')
+    return render(request, 'main/main_home.html', {'timeSheet': timeSheet})
