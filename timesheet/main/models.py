@@ -25,4 +25,4 @@ class TimeSheetItem(models.Model):
     comment = models.CharField(max_length=255, blank=True)
 
     def __str__(self):
-        return f"{self.date} - {self.worker.last_name} - {self.project.name} - {self.hours_number}h"
+        return f"{self.date} - {self.worker.username} - {self.project.name} - {self.hours_number}h"

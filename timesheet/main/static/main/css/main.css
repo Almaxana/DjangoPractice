@@ -110,3 +110,116 @@ header {
 }
 
 
+
+
+
+/* === Стили для страницы регистрации === */
+
+/* Убедимся, что контейнер применяется (если вы добавили div в HTML) */
+/* .container { ... стили уже есть ... } */
+
+.registration-form h2 {
+    text-align: center; /* Или как вам больше нравится */
+    margin-bottom: 25px;
+    color: #333;
+}
+
+/* Стилизация параграфов, создаваемых form.as_p */
+.registration-form p {
+    margin-bottom: 15px;
+}
+
+/* Стилизация меток (label) внутри параграфов */
+.registration-form label {
+    display: block; /* Метка над полем ввода */
+    margin-bottom: 5px;
+    font-size: 14px;
+    color: #495057;
+    font-weight: 500;
+}
+
+/* Стилизация полей ввода (input) */
+.registration-form input[type="text"],
+.registration-form input[type="email"],
+.registration-form input[type="password"],
+.registration-form input[type="url"], /* Добавьте другие типы полей, если они есть */
+.registration-form input[type="number"] {
+    width: 100%; /* Занимают всю ширину контейнера */
+    padding: 8px 12px;
+    border: 1px solid #ced4da; /* Такая же граница, как у фильтров */
+    border-radius: 4px; /* Такое же скругление */
+    font-size: 14px;
+    height: 38px; /* Такая же высота */
+    box-sizing: border-box; /* Чтобы padding не увеличивал общую ширину */
+}
+
+/* Стилизация поля при фокусе (опционально) */
+.registration-form input:focus {
+    border-color: #80bdff;
+    outline: 0;
+    box-shadow: 0 0 0 0.2rem rgba(0, 123, 255, 0.25);
+}
+
+/* Стилизация кнопки отправки - используем существующий класс .button */
+.registration-form .button {
+    /* Стили для .button уже должны быть определены */
+    /* Добавим отступ сверху и сделаем кнопку блочной или по ширине контента */
+    display: inline-block; /* или block для полной ширины */
+    width: auto; /* или 100% если display: block */
+    margin-top: 10px; /* Отступ от последнего поля */
+}
+
+/* Добавляем иконку к кнопке, если нужно (требует Font Awesome) */
+.registration-form .button i {
+    margin-right: 8px;
+}
+
+/* Стилизация сообщений Django (успех, ошибка и т.д.) */
+ul.messages {
+    list-style-type: none;
+    padding: 0;
+    margin: 0 0 20px 0; /* Отступ снизу */
+}
+
+ul.messages li {
+    padding: 10px 15px;
+    margin-bottom: 10px;
+    border: 1px solid transparent;
+    border-radius: 4px;
+    font-size: 14px;
+}
+
+ul.messages li.success {
+    color: #155724;
+    background-color: #d4edda;
+    border-color: #c3e6cb;
+}
+
+ul.messages li.error {
+    color: #721c24;
+    background-color: #f8d7da;
+    border-color: #f5c6cb;
+}
+
+ul.messages li.warning {
+    color: #856404;
+    background-color: #fff3cd;
+    border-color: #ffeeba;
+}
+
+ul.messages li.info {
+    color: #0c5460;
+    background-color: #d1ecf1;
+    border-color: #bee5eb;
+}
+
+/* Стилизация списков ошибок полей Django (если form.as_p их выводит) */
+.registration-form .errorlist {
+    list-style-type: none;
+    padding: 0;
+    margin: 5px 0 0 0;
+    font-size: 0.9em;
+    color: #dc3545; /* Красный цвет для ошибок */
+}
+
+
