@@ -1,0 +1,74 @@
+{% extends 'main/layout.html' %}
+{% load static %}
+
+{% block title %}
+    Главная страница
+{% endblock %}
+
+{% block content %}
+    <div class="container">
+
+        <div class="filters">
+            <div class="filter-group">
+                <label for="employee">Сотрудник:</label>
+                <select id="employee" class="filter-input">
+                    <option value="">Все сотрудники</option>
+                </select>
+            </div>
+
+            <div class="filter-group">
+                <label for="start-date">Начало периода:</label>
+                <input type="date" id="start-date" class="filter-input">
+            </div>
+
+            <div class="filter-group">
+                <label for="end-date">Конец периода:</label>
+                <input type="date" id="end-date" class="filter-input">
+            </div>
+
+            <button class="filter-button">
+                <i class="fas fa-filter"></i> Применить
+            </button>
+
+        </div>
+
+        <button class="button">
+            <i class="fa-duotone fa-solid fa-plus"></i>
+        </button>
+        <table id="timesheet-table" class="time-table">
+            <thead>
+                <tr>
+                    <th>Дата</th>
+                    <th>Сотрудник</th>
+                    <th>Проект</th>
+                    <th>Кол-во часов</th>
+                    <th>Комментарий</th>
+                    <th>Действия</th>
+                </tr>
+            </thead>
+                <tbody>
+                    {% if timeSheet %}
+                        {% for item in timeSheet %}
+                            <tr>
+                                <td>{{ item.date }}</td>
+                                <td>{{ item.worker }}</td>
+                                <td>{{ item.project }}</td>
+                                <td>{{ item.hours_number }}</td>
+                                <td>{{ item.comment }}</td>
+                                <td>
+                                    <button class="button">
+                                        <i class="fa-solid fa-pen"></i>
+                                    </button>
+                                    <button class="button">
+                                         <i class="fas fa-trash"></i>
+                                    </button>
+                                </td>
+                            </tr>
+                        {% endfor %}
+                    {% else %}
+                        <p>Пока нет записей</p>
+                    {% endif %}
+                </tbody>
+        </table>
+    </div>
+{% endblock %}
