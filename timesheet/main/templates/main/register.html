@@ -5,7 +5,11 @@
 
 {% block content %}
   <div class="container">
-    <h2>Регистрация</h2>
+    <div class="auth-header" style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px; border-bottom: 1px solid #eee; padding-bottom: 10px;">
+        <h2 style="margin: 0; font-size: 24px;">Регистрация</h2>
+        <a href="{% url 'login' %}" class="auth-link" style="text-decoration: none; color: #850808; font-size: 16px; font-weight: 500; padding: 8px 12px; border-radius: 4px;">Вход</a>
+    </div>
+
 
     <form method="post" class="registration-form">
       {% csrf_token %}
