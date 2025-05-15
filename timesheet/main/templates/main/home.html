@@ -10,26 +10,28 @@
 
         <div class="filters">
             <div class="filter-group">
-                <label for="employee">Сотрудник:</label>
-                <select id="employee" class="filter-input">
+                <label for="employee-filter">Сотрудник:</label>
+                <select id="employee-filter" class="filter-input">
                     <option value="">Все сотрудники</option>
+                    {% for emp in employees %}
+                        <option value="{{ emp.id }}" {% if current_filters.employee == emp.id|stringformat:"s" %}selected{% endif %}>{{ emp.username }}</option>
+                    {% endfor %}
                 </select>
             </div>
 
             <div class="filter-group">
                 <label for="start-date">Начало периода:</label>
-                <input type="date" id="start-date" class="filter-input">
+                <input type="date" id="start-date" class="filter-input" value="{{ current_filters.start_date|default:'' }}">
             </div>
 
             <div class="filter-group">
                 <label for="end-date">Конец периода:</label>
-                <input type="date" id="end-date" class="filter-input">
+                <input type="date" id="end-date" class="filter-input" value="{{ current_filters.end_date|default:'' }}">
             </div>
 
-            <button class="filter-button">
+            <button id="apply-filters-btn" class="filter-button">
                 <i class="fas fa-filter"></i> Применить
             </button>
-
         </div>
 
         <button id="add-row-btn" class="button" type="button">
@@ -46,88 +48,198 @@
                     <th>Действия</th>
                 </tr>
             </thead>
-                <tbody>
-                    {% if timeSheet %}
-                        {% for item in timeSheet %}
-                            <tr>
-                                <td>{{ item.date }}</td>
-                                <td>{{ item.worker }}</td>
-                                <td>{{ item.project }}</td>
-                                <td>{{ item.hours_number }}</td>
-                                <td>{{ item.comment }}</td>
-                                <td>
-                                    <button class="button">
-                                        <i class="fa-solid fa-pen"></i>
-                                    </button>
-                                    <button class="button">
-                                         <i class="fas fa-trash"></i>
-                                    </button>
-                                </td>
-                            </tr>
-                        {% endfor %}
-                    {% else %}
-                        <p>Пока нет записей</p>
-                    {% endif %}
-                </tbody>
+            <tbody>
+                {% if timeSheet %}
+                    {% for item in timeSheet %}
+                        <tr data-id="{{ item.id }}"> {# Для возможного редактирования/удаления в будущем #}
+                            <td>{{ item.date|date:"Y-m-d" }}</td>
+                            <td>{{ item.worker.username }}</td>
+                            <td>{{ item.project.name }}</td>
+                            <td>{{ item.hours_number }}</td>
+                            <td>{{ item.comment }}</td>
+                            <td>
+                                <button class="button edit-row-btn" title="Редактировать">
+                                    <i class="fa-solid fa-pen"></i>
+                                </button>
+                                <button class="button delete-row-btn" title="Удалить">
+                                     <i class="fas fa-trash"></i>
+                                </button>
+                            </td>
+                        </tr>
+                    {% endfor %}
+                {% else %}
+                    <tr><td colspan="6"><p style="text-align: center; padding: 10px;">Пока нет записей</p></td></tr>
+                {% endif %}
+            </tbody>
         </table>
     </div>
 
     <script>
+        const projectsData = [
+            {% for project in projects %}
+                { id: "{{ project.id }}", name: "{{ project.name|escapejs }}" },
+            {% endfor %}
+        ];
+        const csrfToken = "{{ csrf_token }}";
+        const addEntryUrl = "{% url 'add_timesheet_entry' %}";
+        const currentUserUsername = "{{ current_user.username|escapejs }}";
+
         document.addEventListener("DOMContentLoaded", function () {
-            const addButton = document.querySelector(".button i.fa-plus").closest("button");
+            const addButton = document.getElementById("add-row-btn");
             const tableBody = document.querySelector("#timesheet-table tbody");
-            const currentUser = "{{ current_user.username }}";  // Django вставит имя пользователя
+            const noRecordsRow = tableBody.querySelector('td > p'); // Для удаления сообщения "Пока нет записей"
 
-            addButton.addEventListener("click", function () {
-                const newRow = document.createElement("tr");
+            if (addButton) {
+                addButton.addEventListener("click", function () {
+                    if (tableBody.querySelector('tr.new-entry-row')) {
+                        alert("Пожалуйста, сначала сохраните или отмените текущую новую запись.");
+                        return;
+                    }
 
-                newRow.innerHTML = `
-                    <td><input type="date" name="date" /></td>
-                    <td>${currentUser}</td>
-                    <td><input type="text" name="project" /></td>
-                    <td><input type="number" name="hours_number" min="0" step="0.5" /></td>
-                    <td><input type="text" name="comment" /></td>
-                    <td>
-                        <button class="save-row button"><i class="fas fa-check"></i></button>
-                        <button class="cancel-row button"><i class="fas fa-times"></i></button>
-                    </td>
-                `;
+                    const newRow = tableBody.insertRow(0); // Вставляем в начало tbody
+                    newRow.classList.add('new-entry-row');
 
-                tableBody.prepend(newRow);
+                    let projectOptionsHTML = '<option value="">Выберите проект</option>';
+                    projectsData.forEach(project => {
+                        projectOptionsHTML += `<option value="${project.id}">${project.name}</option>`;
+                    });
 
-                newRow.querySelector(".cancel-row").addEventListener("click", () => {
-                    newRow.remove();
-                });
+                    const today = new Date().toISOString().split('T')[0];
 
-                newRow.querySelector(".save-row").addEventListener("click", () => {
-                    const date = newRow.querySelector('[name="date"]').value;
-                    const project = newRow.querySelector('[name="project"]').value;
-                    const hours = newRow.querySelector('[name="hours_number"]').value;
-                    const comment = newRow.querySelector('[name="comment"]').value;
+                    newRow.innerHTML = `
+                        <td><input type="date" name="date" value="${today}" style="width:100%"/></td>
+                        <td>${currentUserUsername}</td>
+                        <td>
+                            <select name="project" style="width:100%">
+                                ${projectOptionsHTML}
+                            </select>
+                        </td>
+                        <td><input type="number" name="hours_number" min="0" step="0.5" style="width:100%"/></td>
+                        <td><input type="text" name="comment" style="width:100%"/></td>
+                        <td>
+                            <button class="save-row button" title="Сохранить"><i class="fas fa-check"></i></button>
+                            <button class="cancel-row button" title="Отменить"><i class="fas fa-times"></i></button>
+                        </td>
+                    `;
 
-                    fetch("{% url 'add_timesheet_entry' %}", {
-                        method: "POST",
-                        headers: {
-                            "Content-Type": "application/json",
-                            "X-CSRFToken": "{{ csrf_token }}",
-                        },
-                        body: JSON.stringify({
-                            date: date,
-                            project: project,
-                            hours_number: hours,
-                            comment: comment,
-                        }),
-                    })
-                    .then(response => response.json())
-                    .then(data => {
-                        if (data.success) {
-                            location.reload();
-                        } else {
-                            alert("Ошибка: " + data.error);
+                    if (noRecordsRow && tableBody.rows.length > 1) { // Если была строка "нет записей" и добавили новую
+                        const parentRow = noRecordsRow.closest('tr');
+                        if(parentRow) parentRow.remove();
+                    }
+
+
+                    newRow.querySelector(".cancel-row").addEventListener("click", () => {
+                        newRow.remove();
+                         // Если после удаления новой строки таблица пуста (только заголовок), вернуть сообщение
+                        if (tableBody.rows.length === 0 && !document.querySelector("#timesheet-table tbody tr")) {
+                            tableBody.innerHTML = '<tr><td colspan="6"><p style="text-align: center; padding: 10px;">Пока нет записей</p></td></tr>';
                         }
                     });
+
+                    newRow.querySelector(".save-row").addEventListener("click", () => {
+                        const dateInput = newRow.querySelector('[name="date"]');
+                        const projectSelect = newRow.querySelector('[name="project"]');
+                        const hoursInput = newRow.querySelector('[name="hours_number"]');
+                        const commentInput = newRow.querySelector('[name="comment"]');
+
+                        const date = dateInput.value;
+                        const projectId = projectSelect.value;
+                        const hours = hoursInput.value;
+                        const comment = commentInput.value;
+
+                        if (!date) { alert("Пожалуйста, выберите дату."); dateInput.focus(); return; }
+                        if (!projectId) { alert("Пожалуйста, выберите проект."); projectSelect.focus(); return; }
+                        if (hours === "" || parseFloat(hours) < 0) { alert("Пожалуйста, введите корректное количество часов (не отрицательное)."); hoursInput.focus(); return; }
+                        // Допустимо 0 часов, если это имеет смысл для вашего приложения, иначе parseFloat(hours) <= 0
+
+                        fetch(addEntryUrl, {
+                            method: "POST",
+                            headers: {
+                                "Content-Type": "application/json",
+                                "X-CSRFToken": csrfToken,
+                            },
+                            body: JSON.stringify({
+                                date: date,
+                                project_id: projectId, // Отправляем ID проекта
+                                hours_number: hours,
+                                comment: comment,
+                            }),
+                        })
+                        .then(response => {
+                            if (!response.ok) {
+                                return response.json().then(errData => {
+                                    throw new Error(errData.error || `Ошибка сервера: ${response.status}`);
+                                });
+                            }
+                            return response.json();
+                        })
+                        .then(data => {
+                            if (data.success) {
+                                location.reload(); // Перезагружаем страницу для отображения новой записи
+                            } else {
+                                alert("Ошибка при добавлении записи: " + (data.error || "Неизвестная ошибка."));
+                            }
+                        })
+                        .catch(error => {
+                            console.error("Fetch error:", error);
+                            alert("Произошла ошибка при отправке данных: " + error.message);
+                        });
+                    });
+                });
+            }
+
+            // Обработчик для кнопки "Применить фильтры"
+            const applyFiltersButton = document.getElementById('apply-filters-btn');
+            if (applyFiltersButton) {
+                applyFiltersButton.addEventListener('click', function() {
+                    const employeeId = document.getElementById('employee-filter').value;
+                    const startDate = document.getElementById('start-date').value;
+                    const endDate = document.getElementById('end-date').value;
+
+                    let queryParams = new URLSearchParams();
+                    if (employeeId) queryParams.append('employee', employeeId);
+                    if (startDate) queryParams.append('start_date', startDate);
+                    if (endDate) queryParams.append('end_date', endDate);
+
+                    // Перенаправляем на текущий URL с новыми GET-параметрами
+                    window.location.search = queryParams.toString();
+                });
+            }
+
+            // TODO: Добавить обработчики для кнопок редактирования и удаления существующих записей
+            // Пример для удаления (потребуется соответствующий URL и view в Django)
+            document.querySelectorAll('.delete-row-btn').forEach(button => {
+                button.addEventListener('click', function() {
+                    const row = this.closest('tr');
+                    const entryId = row.dataset.id;
+                    if (entryId && confirm('Вы уверены, что хотите удалить эту запись?')) {
+                        // Замените '/delete-entry/${entryId}/' на ваш URL для удаления
+                        /*
+                        fetch(`/delete-entry/${entryId}/`, {
+                            method: 'POST', // или DELETE
+                            headers: { 'X-CSRFToken': csrfToken }
+                        })
+                        .then(response => response.json())
+                        .then(data => {
+                            if(data.success) {
+                                row.remove();
+                                if (tableBody.rows.length === 0 && !document.querySelector("#timesheet-table tbody tr")) {
+                                    tableBody.innerHTML = '<tr><td colspan="6"><p style="text-align: center; padding: 10px;">Пока нет записей</p></td></tr>';
+                                }
+                            } else {
+                                alert('Ошибка удаления: ' + (data.error || 'Неизвестная ошибка'));
+                            }
+                        })
+                        .catch(error => {
+                            console.error("Delete error:", error);
+                            alert("Ошибка при удалении записи.");
+                        });
+                        */
+                       alert(`Функционал удаления для ID: ${entryId} еще не реализован.`);
+                    }
                 });
             });
+
         });
-        </script>
+    </script>
 {% endblock %}
