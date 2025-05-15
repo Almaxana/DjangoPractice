@@ -32,7 +32,7 @@
 
         </div>
 
-        <button class="button">
+        <button id="add-row-btn" class="button" type="button">
             <i class="fa-duotone fa-solid fa-plus"></i>
         </button>
         <table id="timesheet-table" class="time-table">
@@ -71,4 +71,63 @@
                 </tbody>
         </table>
     </div>
+
+    <script>
+        document.addEventListener("DOMContentLoaded", function () {
+            const addButton = document.querySelector(".button i.fa-plus").closest("button");
+            const tableBody = document.querySelector("#timesheet-table tbody");
+            const currentUser = "{{ current_user.username }}";  // Django вставит имя пользователя
+
+            addButton.addEventListener("click", function () {
+                const newRow = document.createElement("tr");
+
+                newRow.innerHTML = `
+                    <td><input type="date" name="date" /></td>
+                    <td>${currentUser}</td>
+                    <td><input type="text" name="project" /></td>
+                    <td><input type="number" name="hours_number" min="0" step="0.5" /></td>
+                    <td><input type="text" name="comment" /></td>
+                    <td>
+                        <button class="save-row button"><i class="fas fa-check"></i></button>
+                        <button class="cancel-row button"><i class="fas fa-times"></i></button>
+                    </td>
+                `;
+
+                tableBody.prepend(newRow);
+
+                newRow.querySelector(".cancel-row").addEventListener("click", () => {
+                    newRow.remove();
+                });
+
+                newRow.querySelector(".save-row").addEventListener("click", () => {
+                    const date = newRow.querySelector('[name="date"]').value;
+                    const project = newRow.querySelector('[name="project"]').value;
+                    const hours = newRow.querySelector('[name="hours_number"]').value;
+                    const comment = newRow.querySelector('[name="comment"]').value;
+
+                    fetch("{% url 'add_timesheet_entry' %}", {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json",
+                            "X-CSRFToken": "{{ csrf_token }}",
+                        },
+                        body: JSON.stringify({
+                            date: date,
+                            project: project,
+                            hours_number: hours,
+                            comment: comment,
+                        }),
+                    })
+                    .then(response => response.json())
+                    .then(data => {
+                        if (data.success) {
+                            location.reload();
+                        } else {
+                            alert("Ошибка: " + data.error);
+                        }
+                    });
+                });
+            });
+        });
+        </script>
 {% endblock %}
