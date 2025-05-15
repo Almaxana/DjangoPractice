@@ -10,8 +10,8 @@
   <link rel="stylesheet" href="{% static 'main/css/main.css' %}">
 </head>
 <header>
-    <img src="{% static 'main/img/logo.png' %}" class="header-logo">
-    <img src="{% static 'main/img/account.png' %}" class="account-img">
+    <a href="{% url 'home' %}"><img src="{% static 'main/img/logo.png' %}" class="header-logo"></a>
+    <a href="{% url 'register' %}"><img src="{% static 'main/img/account.png' %}" class="account-img"></a>
 </header>
 <body>
     {% block content %}
