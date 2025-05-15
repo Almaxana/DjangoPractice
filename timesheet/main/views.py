@@ -5,11 +5,15 @@ from django.contrib import messages
 from django.contrib.auth import login
 from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
-from django.shortcuts import render, redirect
+from django.shortcuts import render, redirect, get_object_or_404
+from django.views.decorators.http import require_POST
+
 # from django.views.decorators.csrf import csrf_exempt # Лучше не использовать, если CSRF токен настроен
 
 from .forms import CustomUserCreationForm
 from .models import TimeSheetItem, Project, Worker  # Добавили Project и Worker
+
+from datetime import datetime
 
 
 def home(request):
@@ -117,3 +121,90 @@ def add_timesheet_entry(request):
             print(f"Error in add_timesheet_entry: {type(e).__name__} - {e}")  # Логирование
             return JsonResponse({'success': False, 'error': f'An unexpected error occurred: {str(e)}'}, status=500)
     return JsonResponse({'success': False, 'error': 'Invalid request method.'}, status=405)
+
+
+@login_required
+@require_POST # Принимаем только POST запросы для удаления
+def delete_timesheet_entry(request, entry_id):
+    try:
+        entry = get_object_or_404(TimeSheetItem, id=entry_id)
+
+        # Опционально: Проверка прав (например, пользователь может удалять только свои записи)
+        if entry.worker != request.user and not request.user.is_staff: # Пример: только автор или админ
+            return JsonResponse({'success': False, 'error': 'У вас нет прав на удаление этой записи.'}, status=403)
+
+        entry.delete()
+        return JsonResponse({'success': True, 'message': 'Запись успешно удалена.'})
+    except Exception as e:
+        # Логирование ошибки может быть полезно
+        print(f"Ошибка при удалении записи {entry_id}: {e}")
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+
+@login_required
+@require_POST
+def update_timesheet_entry(request, entry_id):
+    try:
+        entry = get_object_or_404(TimeSheetItem, id=entry_id)
+
+        if entry.worker != request.user and not request.user.is_staff:
+            return JsonResponse({'success': False, 'error': 'У вас нет прав на редактирование этой записи.'}, status=403)
+
+        data = json.loads(request.body.decode('utf-8'))
+
+        date_str = data.get('date') # Получаем строку
+        project_id_val = data.get('project_id')
+        hours_val = data.get('hours_number')
+        comment_val = data.get('comment', entry.comment)
+
+        if not all([date_str, project_id_val, hours_val is not None]):
+            missing = [f for f,v in [('date',date_str),('project_id',project_id_val),('hours_number',hours_val)] if not v and v is not None]
+            return JsonResponse({'success': False, 'error': f'Отсутствуют обязательные поля: {", ".join(missing)}'}, status=400)
+
+        # Преобразование строки даты в объект datetime.date
+        try:
+            date_obj = datetime.strptime(date_str, '%Y-%m-%d').date() # <--- ПРЕОБРАЗОВАНИЕ
+        except ValueError:
+            return JsonResponse({'success': False, 'error': 'Неверный формат даты. Используйте ГГГГ-ММ-ДД.'}, status=400)
+
+        try:
+            hours_float = float(hours_val)
+            if hours_float < 0:
+                 return JsonResponse({'success': False, 'error': 'Часы не могут быть отрицательными.'}, status=400)
+        except ValueError:
+            return JsonResponse({'success': False, 'error': 'Неверный формат количества часов.'}, status=400)
+
+        try:
+            project_instance = Project.objects.get(id=project_id_val)
+        except Project.DoesNotExist:
+            return JsonResponse({'success': False, 'error': 'Проект не найден.'}, status=404)
+        except ValueError:
+             return JsonResponse({'success': False, 'error': 'Неверный ID проекта.'}, status=400)
+
+
+        # Обновляем поля
+        entry.date = date_obj # <--- Используем преобразованный объект date_obj
+        entry.project = project_instance
+        entry.hours_number = hours_float
+        entry.comment = comment_val
+        entry.save()
+
+        # Теперь entry.date будет объектом datetime.date, и strftime сработает
+        return JsonResponse({
+            'success': True,
+            'message': 'Запись успешно обновлена.',
+            'entry': {
+                'id': entry.id,
+                'date': entry.date.strftime('%Y-%m-%d'),
+                'worker_username': entry.worker.username,
+                'project_name': entry.project.name,
+                'project_id': entry.project.id,
+                'hours_number': entry.hours_number,
+                'comment': entry.comment
+            }
+        })
+    except json.JSONDecodeError:
+        return JsonResponse({'success': False, 'error': 'Неверный JSON.'}, status=400)
+    except Exception as e:
+        print(f"Ошибка при обновлении записи {entry_id}: {type(e).__name__} - {e}")
+        return JsonResponse({'success': False, 'error': str(e)}, status=500)

@@ -206,40 +206,172 @@
                 });
             }
 
-            // TODO: Добавить обработчики для кнопок редактирования и удаления существующих записей
-            // Пример для удаления (потребуется соответствующий URL и view в Django)
             document.querySelectorAll('.delete-row-btn').forEach(button => {
-                button.addEventListener('click', function() {
-                    const row = this.closest('tr');
-                    const entryId = row.dataset.id;
-                    if (entryId && confirm('Вы уверены, что хотите удалить эту запись?')) {
-                        // Замените '/delete-entry/${entryId}/' на ваш URL для удаления
-                        /*
-                        fetch(`/delete-entry/${entryId}/`, {
-                            method: 'POST', // или DELETE
-                            headers: { 'X-CSRFToken': csrfToken }
-                        })
-                        .then(response => response.json())
-                        .then(data => {
-                            if(data.success) {
-                                row.remove();
-                                if (tableBody.rows.length === 0 && !document.querySelector("#timesheet-table tbody tr")) {
-                                    tableBody.innerHTML = '<tr><td colspan="6"><p style="text-align: center; padding: 10px;">Пока нет записей</p></td></tr>';
-                                }
-                            } else {
-                                alert('Ошибка удаления: ' + (data.error || 'Неизвестная ошибка'));
-                            }
-                        })
-                        .catch(error => {
-                            console.error("Delete error:", error);
-                            alert("Ошибка при удалении записи.");
-                        });
-                        */
-                       alert(`Функционал удаления для ID: ${entryId} еще не реализован.`);
-                    }
-                });
+                button.addEventListener('click', handleDeleteClick);
+            });
+
+            // Привязка к существующим кнопкам редактирования (добавим обработчик позже)
+            document.querySelectorAll('.edit-row-btn').forEach(button => {
+                button.addEventListener('click', handleEditClick); // handleEditClick определим ниже
             });
 
         });
+        function handleDeleteClick() {
+            const row = this.closest('tr');
+            const entryId = row.dataset.id;
+            const deleteEntryUrlTemplate = "{% url 'delete_timesheet_entry' 0 %}"; // Шаблон URL
+
+            if (entryId && confirm('Вы уверены, что хотите удалить эту запись?')) {
+                const deleteUrl = deleteEntryUrlTemplate.replace('0', entryId); // Формируем URL
+
+                fetch(deleteUrl, {
+                    method: 'POST',
+                    headers: {
+                        'X-CSRFToken': csrfToken, // csrfToken должен быть определен ранее
+                        'Content-Type': 'application/json' // Даже если тело пустое, лучше указать
+                    },
+                    // body: JSON.stringify({}) // Тело не нужно для этого запроса
+                })
+                .then(response => {
+                    if (!response.ok) {
+                        return response.json().then(errData => {
+                            throw new Error(errData.error || `Ошибка сервера: ${response.status}`);
+                        });
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    if (data.success) {
+                        row.remove();
+                        const tableBody = document.querySelector("#timesheet-table tbody");
+                        if (tableBody.rows.length === 0 && !tableBody.querySelector("tr")) {
+                            tableBody.innerHTML = '<tr><td colspan="6"><p style="text-align: center; padding: 10px;">Пока нет записей</p></td></tr>';
+                        }
+                        // alert(data.message || 'Запись удалена!'); // Опционально
+                    } else {
+                        alert('Ошибка удаления: ' + (data.error || 'Неизвестная ошибка.'));
+                    }
+                })
+                .catch(error => {
+                    console.error("Delete error:", error);
+                    alert("Произошла ошибка при удалении записи: " + error.message);
+                });
+            }
+        }
+
+        const updateEntryUrlTemplate = "{% url 'update_timesheet_entry' 0 %}"; // Шаблон URL
+
+        // Именованная функция для обработчика клика по кнопке "Редактировать"
+        function handleEditClick() {
+            const row = this.closest('tr');
+            if (row.classList.contains('editing')) return; // Уже в режиме редактирования
+
+            row.classList.add('editing');
+            const cells = Array.from(row.querySelectorAll('td'));
+            const entryId = row.dataset.id;
+
+            // Сохраняем оригинальные значения для отмены
+            const originalValues = {
+                date: cells[0].textContent.trim(),
+                project: cells[2].textContent.trim(),
+                hours: cells[3].textContent.trim(),
+                comment: cells[4].textContent.trim(),
+                actions: cells[5].innerHTML // Сохраняем HTML кнопок
+            };
+
+            // Находим текущий проект для pre-selection в select
+            const currentProject = projectsData.find(p => p.name === originalValues.project);
+            const currentProjectId = currentProject ? currentProject.id : "";
+
+            let projectOptionsHTML = '<option value="">Выберите проект</option>';
+            projectsData.forEach(project => { // projectsData должен быть доступен глобально в скрипте
+                projectOptionsHTML += `<option value="${project.id}" ${project.id == currentProjectId ? 'selected' : ''}>${project.name}</option>`;
+            });
+
+            // Заменяем текст на поля ввода
+            cells[0].innerHTML = `<input type="date" name="edit-date" value="${originalValues.date}" class="form-control form-control-sm">`;
+            // cells[1] (Сотрудник) не редактируем здесь
+            cells[2].innerHTML = `<select name="edit-project" class="form-control form-control-sm">${projectOptionsHTML}</select>`;
+            cells[3].innerHTML = `<input type="number" name="edit-hours" value="${originalValues.hours}" min="0" step="0.5" class="form-control form-control-sm">`;
+            cells[4].innerHTML = `<input type="text" name="edit-comment" value="${originalValues.comment}" class="form-control form-control-sm">`;
+            cells[5].innerHTML = `
+                <button class="button save-edit-btn" title="Сохранить"><i class="fas fa-check"></i></button>
+                <button class="button cancel-edit-btn" title="Отмена"><i class="fas fa-times"></i></button>
+            `;
+
+            // Обработчик для "Сохранить изменения"
+            row.querySelector('.save-edit-btn').addEventListener('click', function() {
+                const updatedData = {
+                    date: row.querySelector('[name="edit-date"]').value,
+                    project_id: row.querySelector('[name="edit-project"]').value,
+                    hours_number: row.querySelector('[name="edit-hours"]').value,
+                    comment: row.querySelector('[name="edit-comment"]').value,
+                };
+
+                // Простая валидация на клиенте
+                if (!updatedData.date || !updatedData.project_id || updatedData.hours_number === "" || parseFloat(updatedData.hours_number) < 0) {
+                    alert("Пожалуйста, заполните все обязательные поля корректно (дата, проект, часы >= 0).");
+                    return;
+                }
+
+                const updateUrl = updateEntryUrlTemplate.replace('0', entryId);
+
+                fetch(updateUrl, {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                        'X-CSRFToken': csrfToken,
+                    },
+                    body: JSON.stringify(updatedData)
+                })
+                .then(response => {
+                    if (!response.ok) {
+                         return response.json().then(errData => {
+                            throw new Error(errData.error || `Ошибка сервера: ${response.status}`);
+                        });
+                    }
+                    return response.json();
+                })
+                .then(data => {
+                    if (data.success && data.entry) {
+                        // Обновляем ячейки в таблице новыми данными
+                        cells[0].textContent = data.entry.date;
+                        cells[1].textContent = data.entry.worker_username; // Сотрудник может не меняться, но лучше обновить из ответа
+                        cells[2].textContent = data.entry.project_name;
+                        cells[3].textContent = data.entry.hours_number;
+                        cells[4].textContent = data.entry.comment;
+                        cells[5].innerHTML = originalValues.actions; // Восстанавливаем кнопки "Редактировать/Удалить"
+
+                        row.classList.remove('editing');
+                        // Перепривязываем обработчики к восстановленным кнопкам
+                        row.querySelector('.edit-row-btn').addEventListener('click', handleEditClick);
+                        row.querySelector('.delete-row-btn').addEventListener('click', handleDeleteClick);
+                    } else {
+                        alert('Ошибка обновления: ' + (data.error || 'Неизвестная ошибка.'));
+                    }
+                })
+                .catch(error => {
+                    console.error("Update error:", error);
+                    alert("Произошла ошибка при обновлении записи: " + error.message);
+                    // Можно откатить изменения к originalValues или оставить поля для исправления
+                });
+            });
+
+            // Обработчик для "Отмена"
+            row.querySelector('.cancel-edit-btn').addEventListener('click', function() {
+                cells[0].textContent = originalValues.date;
+                // cells[1] не меняли
+                cells[2].textContent = originalValues.project;
+                cells[3].textContent = originalValues.hours;
+                cells[4].textContent = originalValues.comment;
+                cells[5].innerHTML = originalValues.actions; // Восстанавливаем кнопки
+
+                row.classList.remove('editing');
+                // Перепривязываем обработчики к восстановленным кнопкам
+                row.querySelector('.edit-row-btn').addEventListener('click', handleEditClick);
+                row.querySelector('.delete-row-btn').addEventListener('click', handleDeleteClick);
+            });
+        }
+
     </script>
 {% endblock %}
