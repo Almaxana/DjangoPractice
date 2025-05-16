@@ -16,17 +16,41 @@ from .models import TimeSheetItem, Project, Worker  # Добавили Project �
 from datetime import datetime
 
 
-def home(request):
-    timesheet_query = TimeSheetItem.objects.select_related('worker', 'project')
+from django.shortcuts import render
+from django.contrib.auth.decorators import login_required # Убедитесь, что view защищен
+from .models import TimeSheetItem, Project, Worker # Убедитесь, что импортируете Worker
 
+@login_required # Это гарантирует, что request.user - это аутентифицированный пользователь
+def home(request):
     # Получаем значения фильтров из GET-запроса
-    filter_employee_id = request.GET.get('employee')
+    requested_employee_id_filter = request.GET.get('employee') # ID сотрудника из фильтра
     filter_start_date = request.GET.get('start_date')
     filter_end_date = request.GET.get('end_date')
 
-    # Применяем фильтры, если они есть
-    if filter_employee_id:
-        timesheet_query = timesheet_query.filter(worker_id=filter_employee_id)
+    # Базовый queryset
+    timesheet_query = TimeSheetItem.objects.select_related('worker', 'project')
+
+    # Переменная для хранения ID сотрудника, который будет в 'current_filters'
+    # Это нужно, чтобы в шаблоне правильно отображался selected option
+    effective_employee_id_for_template = None
+
+    if request.user.is_superuser:
+        # Суперпользователь может видеть все записи или фильтровать по любому сотруднику
+        if requested_employee_id_filter:
+            timesheet_query = timesheet_query.filter(worker_id=requested_employee_id_filter)
+            effective_employee_id_for_template = requested_employee_id_filter
+        # Если фильтр по сотруднику не выбран админом, он видит все записи (timesheet_query не меняется)
+    else:
+        # Обычный пользователь видит только свои записи
+        # Предполагаем, что request.user.id соответствует worker_id в TimeSheetItem
+        # Если у вас Worker - это отдельная модель, связанная с User, то:
+        # worker_instance = Worker.objects.get(user=request.user) # или request.user.worker, если есть related_name
+        # timesheet_query = timesheet_query.filter(worker=worker_instance)
+        # effective_employee_id_for_template = str(worker_instance.id)
+        timesheet_query = timesheet_query.filter(worker=request.user) # Если Worker - это и есть ваша user model
+        effective_employee_id_for_template = str(request.user.id) # Для current_filters, чтобы <option> был selected
+
+    # Применяем фильтры по дате (они общие для всех)
     if filter_start_date:
         timesheet_query = timesheet_query.filter(date__gte=filter_start_date)
     if filter_end_date:
@@ -34,21 +58,20 @@ def home(request):
 
     timesheet = timesheet_query.order_by('-date')
     projects = Project.objects.all()
-    employees = Worker.objects.all()  # Для фильтра сотрудников
+    employees = Worker.objects.all()  # Для выпадающего списка сотрудников (доступен только админу)
 
-    # Передаем значения фильтров обратно в шаблон, чтобы они остались выбранными
     current_filters = {
-        'employee': filter_employee_id,
+        'employee': effective_employee_id_for_template, # Используем ID, который должен быть 'selected'
         'start_date': filter_start_date,
         'end_date': filter_end_date,
     }
 
     return render(request, 'main/home.html', {
         'timeSheet': timesheet,
-        'current_user': request.user,
-        'projects': projects,  # Передаем проекты
-        'employees': employees,  # Передаем сотрудников для фильтра
+        'projects': projects,
+        'employees': employees,
         'current_filters': current_filters,
+        'current_user': request.user,
     })
 
 
