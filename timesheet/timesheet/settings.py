@@ -120,3 +120,4 @@ AUTH_USER_MODEL = 'main.Worker'
 
 LOGIN_REDIRECT_URL = 'home'
 LOGIN_URL = 'login'
+LOGOUT_REDIRECT_URL = 'register'

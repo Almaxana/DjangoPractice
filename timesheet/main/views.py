@@ -124,13 +124,13 @@ def add_timesheet_entry(request):
 
 
 @login_required
-@require_POST # Принимаем только POST запросы для удаления
+@require_POST  # Принимаем только POST запросы для удаления
 def delete_timesheet_entry(request, entry_id):
     try:
         entry = get_object_or_404(TimeSheetItem, id=entry_id)
 
         # Опционально: Проверка прав (например, пользователь может удалять только свои записи)
-        if entry.worker != request.user and not request.user.is_staff: # Пример: только автор или админ
+        if entry.worker != request.user and not request.user.is_staff:  # Пример: только автор или админ
             return JsonResponse({'success': False, 'error': 'У вас нет прав на удаление этой записи.'}, status=403)
 
         entry.delete()
@@ -148,29 +148,33 @@ def update_timesheet_entry(request, entry_id):
         entry = get_object_or_404(TimeSheetItem, id=entry_id)
 
         if entry.worker != request.user and not request.user.is_staff:
-            return JsonResponse({'success': False, 'error': 'У вас нет прав на редактирование этой записи.'}, status=403)
+            return JsonResponse({'success': False, 'error': 'У вас нет прав на редактирование этой записи.'},
+                                status=403)
 
         data = json.loads(request.body.decode('utf-8'))
 
-        date_str = data.get('date') # Получаем строку
+        date_str = data.get('date')  # Получаем строку
         project_id_val = data.get('project_id')
         hours_val = data.get('hours_number')
         comment_val = data.get('comment', entry.comment)
 
         if not all([date_str, project_id_val, hours_val is not None]):
-            missing = [f for f,v in [('date',date_str),('project_id',project_id_val),('hours_number',hours_val)] if not v and v is not None]
-            return JsonResponse({'success': False, 'error': f'Отсутствуют обязательные поля: {", ".join(missing)}'}, status=400)
+            missing = [f for f, v in [('date', date_str), ('project_id', project_id_val), ('hours_number', hours_val)]
+                       if not v and v is not None]
+            return JsonResponse({'success': False, 'error': f'Отсутствуют обязательные поля: {", ".join(missing)}'},
+                                status=400)
 
         # Преобразование строки даты в объект datetime.date
         try:
-            date_obj = datetime.strptime(date_str, '%Y-%m-%d').date() # <--- ПРЕОБРАЗОВАНИЕ
+            date_obj = datetime.strptime(date_str, '%Y-%m-%d').date()  # <--- ПРЕОБРАЗОВАНИЕ
         except ValueError:
-            return JsonResponse({'success': False, 'error': 'Неверный формат даты. Используйте ГГГГ-ММ-ДД.'}, status=400)
+            return JsonResponse({'success': False, 'error': 'Неверный формат даты. Используйте ГГГГ-ММ-ДД.'},
+                                status=400)
 
         try:
             hours_float = float(hours_val)
             if hours_float < 0:
-                 return JsonResponse({'success': False, 'error': 'Часы не могут быть отрицательными.'}, status=400)
+                return JsonResponse({'success': False, 'error': 'Часы не могут быть отрицательными.'}, status=400)
         except ValueError:
             return JsonResponse({'success': False, 'error': 'Неверный формат количества часов.'}, status=400)
 
@@ -179,11 +183,10 @@ def update_timesheet_entry(request, entry_id):
         except Project.DoesNotExist:
             return JsonResponse({'success': False, 'error': 'Проект не найден.'}, status=404)
         except ValueError:
-             return JsonResponse({'success': False, 'error': 'Неверный ID проекта.'}, status=400)
-
+            return JsonResponse({'success': False, 'error': 'Неверный ID проекта.'}, status=400)
 
         # Обновляем поля
-        entry.date = date_obj # <--- Используем преобразованный объект date_obj
+        entry.date = date_obj  # <--- Используем преобразованный объект date_obj
         entry.project = project_instance
         entry.hours_number = hours_float
         entry.comment = comment_val
@@ -208,3 +211,8 @@ def update_timesheet_entry(request, entry_id):
     except Exception as e:
         print(f"Ошибка при обновлении записи {entry_id}: {type(e).__name__} - {e}")
         return JsonResponse({'success': False, 'error': str(e)}, status=500)
+
+
+@login_required  # Доступна только авторизованным
+def logout_page_view(request):
+    return render(request, 'main/logout_page.html')
