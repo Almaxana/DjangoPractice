@@ -10,7 +10,6 @@ media
 *.bak 
 
 .idea/**
-**/migrations/**
 
 # File-based project format
 *.iws
