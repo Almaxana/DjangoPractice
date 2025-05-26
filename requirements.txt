@@ -1,3 +1,4 @@
 Django>=4.2,<4.3
 gunicorn
 dotenv
+psycopg2-binary
