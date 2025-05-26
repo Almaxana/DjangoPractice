@@ -28,7 +28,8 @@ SECRET_KEY = 'django-insecure-up97ztvcmbq1hwdhw99*^ji#w3zxb(y%(6d6k4n2_s6c9^ygl%
 DEBUG = True
 
 ALLOWED_HOSTS = [
-    'djangopractice-jrzv.onrender.com'
+    'djangopractice-jrzv.onrender.com',
+    'localhost'
 ]
 
 # Application definition
@@ -75,7 +76,6 @@ WSGI_APPLICATION = 'timesheet.wsgi.application'
 # Database
 # https://docs.djangoproject.com/en/5.2/ref/settings/#databases
 
-print("DB_HOST:", os.getenv('DB_HOST'))
 DATABASES = {
     'default': {
         'ENGINE': 'django.db.backends.postgresql',
