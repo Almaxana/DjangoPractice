@@ -82,7 +82,6 @@
     </div>
 
     <script>
-        // Define global variables that will be used by imported modules
         window.projectsData = [
             {% for project in projects %}
                 { id: "{{ project.id }}", name: "{{ project.name|escapejs }}" },
