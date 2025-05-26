@@ -11,26 +11,18 @@
         <div class="filters">
             <div class="filter-group">
                 {% if user.is_superuser %}
-                    {# Блок для СУПЕРПОЛЬЗОВАТЕЛЯ - отображаем полный фильтр #}
                     <label for="employee-filter">Сотрудник:</label>
                     <select id="employee-filter" class="filter-input" name="employee_filter">
                         <option value="">Все сотрудники</option>
                         {% for emp in employees %}
-                            {# Проверка, чтобы current_filters.employee и emp.id сравнивались как строки или как числа #}
-                            {# Если emp.id - число, а current_filters.employee - строка из GET-параметра, stringformat нужен #}
                             <option value="{{ emp.id }}" {% if current_filters.employee == emp.id|stringformat:"s" %}selected{% endif %}>{{ emp.username }}</option>
                         {% endfor %}
                     </select>
                 {% elif user.is_authenticated %}
-                    {# Блок для ОБЫЧНОГО АУТЕНТИФИЦИРОВАННОГО ПОЛЬЗОВАТЕЛЯ #}
-                    {# Показываем его имя в неактивном поле, похожем на фильтр #}
                     <label for="employee-display">Сотрудник:</label>
-                    <select id="employee-display" class="filter-input" disabled> {# Атрибут disabled делает select неактивным #}
-                        <option selected>{{ user.username }}</option> {# Показываем имя текущего пользователя #}
+                    <select id="employee-display" class="filter-input" disabled>
+                        <option selected>{{ user.username }}</option>
                     </select>
-                    {# Если вы хотите, чтобы для обычного пользователя его ID также отправлялся на сервер (хотя это обычно избыточно, т.к. сервер знает request.user) #}
-                    {# можно добавить скрытое поле. Но для отображения это не нужно. #}
-                    {# <input type="hidden" name="employee_filter" value="{{ user.id }}"> #}
                 {% endif %}
             </div>
 
@@ -66,7 +58,7 @@
             <tbody>
                 {% if timeSheet %}
                     {% for item in timeSheet %}
-                        <tr data-id="{{ item.id }}"> {# Для возможного редактирования/удаления в будущем #}
+                        <tr data-id="{{ item.id }}">
                             <td>{{ item.date|date:"Y-m-d" }}</td>
                             <td>{{ item.worker.username }}</td>
                             <td>{{ item.project.name }}</td>
