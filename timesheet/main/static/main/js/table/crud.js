@@ -1,3 +1,16 @@
+function getDateRangeArray(start, end) {
+    const startDate = new Date(start);
+    const endDate = new Date(end);
+    const dates = [];
+
+    while (startDate <= endDate) {
+        dates.push(startDate.toISOString().split('T')[0]);
+        startDate.setDate(startDate.getDate() + 1);
+    }
+
+    return dates;
+}
+
 export function initializeTimesheetCrud(projectsData, csrfToken, addEntryUrl, currentUserUsername, deleteEntryUrlTemplate, updateEntryUrlTemplate) {
     const addButton = document.getElementById("add-row-btn");
     const tableBody = document.querySelector("#timesheet-table tbody");
@@ -172,7 +185,18 @@ export function initializeTimesheetCrud(projectsData, csrfToken, addEntryUrl, cu
             const today = new Date().toISOString().split('T')[0];
 
             newRow.innerHTML = `
-                <td><input type="date" name="date" value="${today}" style="width:100%"/></td>
+                <td style="min-width: 180px;">
+                    <div style="display: flex; flex-direction: column; gap: 4px;">
+                        <div style="display: flex; align-items: center; gap: 4px;">
+                            <label style="white-space: nowrap;">с</label>
+                            <input type="date" name="start_date" value="${today}" class="form-control form-control-sm" style="flex: 1;">
+                        </div>
+                        <div style="display: flex; align-items: center; gap: 4px;">
+                            <label style="white-space: nowrap;">по</label>
+                            <input type="date" name="end_date" value="${today}" class="form-control form-control-sm" style="flex: 1;">
+                        </div>
+                    </div>
+                </td>
                 <td>${currentUserUsername}</td>
                 <td>
                     <select name="project" style="width:100%">
@@ -195,52 +219,61 @@ export function initializeTimesheetCrud(projectsData, csrfToken, addEntryUrl, cu
             });
 
             newRow.querySelector(".save-row").addEventListener("click", () => {
-                const dateInput = newRow.querySelector('[name="date"]');
+                const startDateInput = newRow.querySelector('[name="start_date"]');
+                const endDateInput = newRow.querySelector('[name="end_date"]');
                 const projectSelect = newRow.querySelector('[name="project"]');
                 const hoursInput = newRow.querySelector('[name="hours_number"]');
                 const commentInput = newRow.querySelector('[name="comment"]');
 
-                const date = dateInput.value;
+                const startDate = startDateInput.value;
+                const endDate = endDateInput.value;
                 const projectId = projectSelect.value;
                 const hours = hoursInput.value;
                 const comment = commentInput.value;
 
-                if (!date) { alert("Пожалуйста, выберите дату."); dateInput.focus(); return; }
+                if (!startDate || !endDate) { alert("Пожалуйста, выберите обе даты."); return; }
+                if (startDate > endDate) { alert("Начальная дата не может быть позже конечной."); return; }
                 if (!projectId) { alert("Пожалуйста, выберите проект."); projectSelect.focus(); return; }
                 if (hours === "" || parseFloat(hours) < 0) { alert("Пожалуйста, введите корректное количество часов (не отрицательное)."); hoursInput.focus(); return; }
 
-                fetch(addEntryUrl, {
-                    method: "POST",
-                    headers: {
-                        "Content-Type": "application/json",
-                        "X-CSRFToken": csrfToken,
-                    },
-                    body: JSON.stringify({
-                        date: date,
-                        project_id: projectId,
-                        hours_number: hours,
-                        comment: comment,
-                    }),
-                })
-                .then(response => {
-                    if (!response.ok) {
-                        return response.json().then(errData => {
-                            throw new Error(errData.error || `Ошибка сервера: ${response.status}`);
-                        });
-                    }
-                    return response.json();
-                })
-                .then(data => {
-                    if (data.success) {
-                        location.reload();
-                    } else {
-                        alert("Ошибка при добавлении записи: " + (data.error || "Неизвестная ошибка."));
-                    }
-                })
-                .catch(error => {
-                    console.error("Fetch error:", error);
-                    alert("Произошла ошибка при отправке данных: " + error.message);
+                const dates = getDateRangeArray(startDate, endDate);
+                const promises = dates.map(date => {
+                    return fetch(addEntryUrl, {
+                        method: "POST",
+                        headers: {
+                            "Content-Type": "application/json",
+                            "X-CSRFToken": csrfToken,
+                        },
+                        body: JSON.stringify({
+                            date: date,
+                            project_id: projectId,
+                            hours_number: hours,
+                            comment: comment,
+                        }),
+                    });
                 });
+
+                Promise.all(promises)
+                    .then(responses => Promise.all(responses.map(res => {
+                        if (!res.ok) {
+                            return res.json().then(err => {
+                                throw new Error(err.error || `Ошибка сервера: ${res.status}`);
+                            });
+                        }
+                        return res.json();
+                    })))
+                    .then(results => {
+                        if (results.every(r => r.success)) {
+                            location.reload();
+                        } else {
+                            const errors = results.filter(r => !r.success).map(r => r.error).join(", ");
+                            alert("Некоторые записи не добавлены: " + errors);
+                        }
+                    })
+                    .catch(error => {
+                        console.error("Ошибка при отправке:", error);
+                        alert("Произошла ошибка при добавлении записей: " + error.message);
+                    });
             });
         });
     }
