@@ -59,6 +59,6 @@
         <button type="submit" class="btn btn-primary">Войти</button>
         <input type="hidden" name="next" value="{{ next }}">
     </form>
-
+    <a href="{% url 'register' %}"><button class="btn btn-primary reg-btn" style="margin-top: 10px;">Зарегистрироваться</button></a>
 </div>
 {% endblock %}

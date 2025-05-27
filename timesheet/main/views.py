@@ -1,56 +1,36 @@
-# main/views.py
 import json
 
 from django.contrib import messages
 from django.contrib.auth import login
-from django.contrib.auth.decorators import login_required
 from django.http import JsonResponse
 from django.shortcuts import render, redirect, get_object_or_404
 from django.views.decorators.http import require_POST
-
-# from django.views.decorators.csrf import csrf_exempt # Лучше не использовать, если CSRF токен настроен
-
-from .forms import CustomUserCreationForm
-from .models import TimeSheetItem, Project, Worker  # Добавили Project и Worker
-
 from datetime import datetime
-
-
 from django.shortcuts import render
-from django.contrib.auth.decorators import login_required # Убедитесь, что view защищен
-from .models import TimeSheetItem, Project, Worker # Убедитесь, что импортируете Worker
+from django.contrib.auth.decorators import login_required
 
-@login_required # Это гарантирует, что request.user - это аутентифицированный пользователь
+from .models import TimeSheetItem, Project, Worker
+from .forms import CustomUserCreationForm
+
+
+@login_required
 def home(request):
-    # Получаем значения фильтров из GET-запроса
-    requested_employee_id_filter = request.GET.get('employee') # ID сотрудника из фильтра
+    requested_employee_id_filter = request.GET.get('employee')
     filter_start_date = request.GET.get('start_date')
     filter_end_date = request.GET.get('end_date')
 
-    # Базовый queryset
     timesheet_query = TimeSheetItem.objects.select_related('worker', 'project')
 
-    # Переменная для хранения ID сотрудника, который будет в 'current_filters'
-    # Это нужно, чтобы в шаблоне правильно отображался selected option
     effective_employee_id_for_template = None
 
     if request.user.is_superuser:
-        # Суперпользователь может видеть все записи или фильтровать по любому сотруднику
         if requested_employee_id_filter:
             timesheet_query = timesheet_query.filter(worker_id=requested_employee_id_filter)
             effective_employee_id_for_template = requested_employee_id_filter
-        # Если фильтр по сотруднику не выбран админом, он видит все записи (timesheet_query не меняется)
     else:
-        # Обычный пользователь видит только свои записи
-        # Предполагаем, что request.user.id соответствует worker_id в TimeSheetItem
-        # Если у вас Worker - это отдельная модель, связанная с User, то:
-        # worker_instance = Worker.objects.get(user=request.user) # или request.user.worker, если есть related_name
-        # timesheet_query = timesheet_query.filter(worker=worker_instance)
-        # effective_employee_id_for_template = str(worker_instance.id)
-        timesheet_query = timesheet_query.filter(worker=request.user) # Если Worker - это и есть ваша user model
-        effective_employee_id_for_template = str(request.user.id) # Для current_filters, чтобы <option> был selected
+        timesheet_query = timesheet_query.filter(worker=request.user)
+        effective_employee_id_for_template = str(request.user.id)
 
-    # Применяем фильтры по дате (они общие для всех)
     if filter_start_date:
         timesheet_query = timesheet_query.filter(date__gte=filter_start_date)
     if filter_end_date:
@@ -58,10 +38,10 @@ def home(request):
 
     timesheet = timesheet_query.order_by('-date')
     projects = Project.objects.all()
-    employees = Worker.objects.all()  # Для выпадающего списка сотрудников (доступен только админу)
+    employees = Worker.objects.all()
 
     current_filters = {
-        'employee': effective_employee_id_for_template, # Используем ID, который должен быть 'selected'
+        'employee': effective_employee_id_for_template,
         'start_date': filter_start_date,
         'end_date': filter_end_date,
     }
@@ -85,18 +65,15 @@ def register(request):
                 messages.success(request, 'Регистрация прошла успешно!')
                 return redirect('home')
             except Exception as e:
-                print(f"Ошибка при регистрации: {e}")  # Логирование
+                print(f"Ошибка при регистрации: {e}")
                 messages.error(request, 'Произошла ошибка при регистрации. Попробуйте еще раз.')
         else:
-            # Вывод ошибок формы для отладки
-            # print(form.errors.as_json())
             messages.error(request, 'Пожалуйста, исправьте ошибки в форме.')
     else:
         form = CustomUserCreationForm()
     return render(request, 'main/register.html', {'form': form})
 
 
-# @csrf_exempt # Убираем, так как CSRF-токен передается в JS
 @login_required
 def add_timesheet_entry(request):
     if request.method == 'POST':
@@ -104,11 +81,10 @@ def add_timesheet_entry(request):
             data = json.loads(request.body.decode('utf-8'))
             project_id = data.get('project_id')
             date_val = data.get('date')
-            hours_val = data.get('hours_number')  # Убедитесь, что это поле всегда передается
-            comment_val = data.get('comment', '')  # Комментарий может быть пустым
+            hours_val = data.get('hours_number')
+            comment_val = data.get('comment', '')
 
-            # Валидация на сервере
-            if not all([project_id, date_val, hours_val is not None]):  # hours_val может быть 0, но должен быть
+            if not all([project_id, date_val, hours_val is not None]):
                 missing = [field for field, val in
                            [('project_id', project_id), ('date', date_val), ('hours_number', hours_val)] if
                            not val and val is not None]
@@ -116,9 +92,8 @@ def add_timesheet_entry(request):
                                     status=400)
 
             try:
-                # Проверяем, что hours_val можно преобразовать в число
                 hours_float = float(hours_val)
-                if hours_float < 0:  # Часы не могут быть отрицательными
+                if hours_float < 0:
                     return JsonResponse({'success': False, 'error': 'Hours cannot be negative.'}, status=400)
             except ValueError:
                 return JsonResponse({'success': False, 'error': 'Invalid hours_number format.'}, status=400)
@@ -127,39 +102,37 @@ def add_timesheet_entry(request):
                 project_instance = Project.objects.get(id=project_id)
             except Project.DoesNotExist:
                 return JsonResponse({'success': False, 'error': 'Project not found.'}, status=404)
-            except ValueError:  # Если project_id не валидный int/uuid
+            except ValueError:
                 return JsonResponse({'success': False, 'error': 'Invalid Project ID format.'}, status=400)
 
             TimeSheetItem.objects.create(
                 date=date_val,
                 worker=request.user,
-                project=project_instance,  # Используем найденный экземпляр Project
-                hours_number=hours_float,  # Используем преобразованное значение
+                project=project_instance,
+                hours_number=hours_float,
                 comment=comment_val
             )
             return JsonResponse({'success': True})
         except json.JSONDecodeError:
             return JsonResponse({'success': False, 'error': 'Invalid JSON.'}, status=400)
         except Exception as e:
-            print(f"Error in add_timesheet_entry: {type(e).__name__} - {e}")  # Логирование
+            print(f"Error in add_timesheet_entry: {type(e).__name__} - {e}")
             return JsonResponse({'success': False, 'error': f'An unexpected error occurred: {str(e)}'}, status=500)
     return JsonResponse({'success': False, 'error': 'Invalid request method.'}, status=405)
 
 
 @login_required
-@require_POST  # Принимаем только POST запросы для удаления
+@require_POST
 def delete_timesheet_entry(request, entry_id):
     try:
         entry = get_object_or_404(TimeSheetItem, id=entry_id)
 
-        # Опционально: Проверка прав (например, пользователь может удалять только свои записи)
-        if entry.worker != request.user and not request.user.is_staff:  # Пример: только автор или админ
+        if entry.worker != request.user and not request.user.is_staff:
             return JsonResponse({'success': False, 'error': 'У вас нет прав на удаление этой записи.'}, status=403)
 
         entry.delete()
         return JsonResponse({'success': True, 'message': 'Запись успешно удалена.'})
     except Exception as e:
-        # Логирование ошибки может быть полезно
         print(f"Ошибка при удалении записи {entry_id}: {e}")
         return JsonResponse({'success': False, 'error': str(e)}, status=500)
 
@@ -176,7 +149,7 @@ def update_timesheet_entry(request, entry_id):
 
         data = json.loads(request.body.decode('utf-8'))
 
-        date_str = data.get('date')  # Получаем строку
+        date_str = data.get('date')
         project_id_val = data.get('project_id')
         hours_val = data.get('hours_number')
         comment_val = data.get('comment', entry.comment)
@@ -187,9 +160,8 @@ def update_timesheet_entry(request, entry_id):
             return JsonResponse({'success': False, 'error': f'Отсутствуют обязательные поля: {", ".join(missing)}'},
                                 status=400)
 
-        # Преобразование строки даты в объект datetime.date
         try:
-            date_obj = datetime.strptime(date_str, '%Y-%m-%d').date()  # <--- ПРЕОБРАЗОВАНИЕ
+            date_obj = datetime.strptime(date_str, '%Y-%m-%d').date()
         except ValueError:
             return JsonResponse({'success': False, 'error': 'Неверный формат даты. Используйте ГГГГ-ММ-ДД.'},
                                 status=400)
@@ -208,14 +180,12 @@ def update_timesheet_entry(request, entry_id):
         except ValueError:
             return JsonResponse({'success': False, 'error': 'Неверный ID проекта.'}, status=400)
 
-        # Обновляем поля
-        entry.date = date_obj  # <--- Используем преобразованный объект date_obj
+        entry.date = date_obj
         entry.project = project_instance
         entry.hours_number = hours_float
         entry.comment = comment_val
         entry.save()
 
-        # Теперь entry.date будет объектом datetime.date, и strftime сработает
         return JsonResponse({
             'success': True,
             'message': 'Запись успешно обновлена.',
@@ -236,6 +206,6 @@ def update_timesheet_entry(request, entry_id):
         return JsonResponse({'success': False, 'error': str(e)}, status=500)
 
 
-@login_required  # Доступна только авторизованным
+@login_required
 def logout_page_view(request):
     return render(request, 'main/logout_page.html')
