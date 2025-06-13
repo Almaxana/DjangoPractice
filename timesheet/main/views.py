@@ -23,7 +23,7 @@ def home(request):
 
     effective_employee_id_for_template = None
 
-    if request.user.is_superuser:
+    if request.user.is_staff:
         if requested_employee_id_filter:
             timesheet_query = timesheet_query.filter(worker_id=requested_employee_id_filter)
             effective_employee_id_for_template = requested_employee_id_filter

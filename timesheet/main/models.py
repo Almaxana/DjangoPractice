@@ -3,7 +3,18 @@ from django.db import models
 
 
 class Worker(AbstractUser):
-    position = models.CharField("Должность", max_length=100, blank=False, null=False)
+    class PositionChoices(models.TextChoices):
+        MANAGER = 'analytic', 'Аналитик'
+        DEVELOPER = 'developer', 'Разработчик'
+        TESTER = 'tester', 'Тестировщик'
+
+    position = models.CharField(
+        "Должность",
+        max_length=20,
+        choices=PositionChoices.choices,
+        default=PositionChoices.DEVELOPER,
+    )
+
 
     class Meta:
         verbose_name = "Сотрудник"
@@ -14,6 +25,17 @@ class Worker(AbstractUser):
 
 
 class Project(models.Model):
+    class ProjectStatusChoices(models.TextChoices):
+        ACTIVE = 'active', 'активен'
+        STOPPED = 'stopped', 'приостановлен'
+        CLOSED = 'closed', 'завершен'
+
+    projectStatus = models.CharField(
+        "Статус проекта",
+        max_length=20,
+        choices=ProjectStatusChoices.choices,
+        default=ProjectStatusChoices.ACTIVE,
+    )
     name = models.CharField(max_length=100)
     customer = models.CharField(max_length=100)
 
@@ -27,8 +49,8 @@ class Project(models.Model):
 
 class TimeSheetItem(models.Model):
     date = models.DateField()
-    worker = models.ForeignKey(Worker, on_delete=models.CASCADE, related_name='timesheet_items')
-    project = models.ForeignKey(Project, on_delete=models.CASCADE, related_name='timesheet_items')
+    worker = models.ForeignKey(Worker, on_delete=models.DO_NOTHING, related_name='timesheet_items')
+    project = models.ForeignKey(Project, on_delete=models.DO_NOTHING, related_name='timesheet_items')
     hours_number = models.PositiveIntegerField()
     comment = models.CharField(max_length=255, blank=True)
 
