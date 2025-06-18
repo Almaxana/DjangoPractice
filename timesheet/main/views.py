@@ -1,16 +1,23 @@
 import json
+from datetime import datetime
 
 from django.contrib import messages
 from django.contrib.auth import login
+from django.contrib.auth.mixins import LoginRequiredMixin
 from django.http import JsonResponse
-from django.shortcuts import render, redirect, get_object_or_404
-from django.views.decorators.http import require_POST
-from datetime import datetime
+from django.shortcuts import redirect, get_object_or_404
+
 from django.shortcuts import render
 from django.contrib.auth.decorators import login_required
-
+from django.utils.decorators import method_decorator
+from django.views.decorators.csrf import csrf_exempt
+from rest_framework import status
+from rest_framework.permissions import IsAuthenticated
+from rest_framework.response import Response
+from rest_framework.views import APIView
 from .models import TimeSheetItem, Project, Worker
 from .forms import CustomUserCreationForm
+from .serializers import TimeSheetItemSerializer
 
 
 @login_required
@@ -74,136 +81,49 @@ def register(request):
     return render(request, 'main/register.html', {'form': form})
 
 
-@login_required
-def add_timesheet_entry(request):
-    if request.method == 'POST':
-        try:
-            data = json.loads(request.body.decode('utf-8'))
-            project_id = data.get('project_id')
-            date_val = data.get('date')
-            hours_val = data.get('hours_number')
-            comment_val = data.get('comment', '')
+class TimeSheetEntryView(APIView):
+    permission_classes = [IsAuthenticated]
 
-            if not all([project_id, date_val, hours_val is not None]):
-                missing = [field for field, val in
-                           [('project_id', project_id), ('date', date_val), ('hours_number', hours_val)] if
-                           not val and val is not None]
-                return JsonResponse({'success': False, 'error': f'Missing required fields: {", ".join(missing)}'},
-                                    status=400)
+    def post(self, request, entry_id=None):
+        if entry_id is not None:
+            return Response({'success': False, 'error': 'POST с ID не поддерживается'}, status=405)
 
-            try:
-                hours_float = float(hours_val)
-                if hours_float < 0:
-                    return JsonResponse({'success': False, 'error': 'Hours cannot be negative.'}, status=400)
-            except ValueError:
-                return JsonResponse({'success': False, 'error': 'Invalid hours_number format.'}, status=400)
+        serializer = TimeSheetItemSerializer(data=request.data, context={'request': request})
+        if serializer.is_valid():
+            serializer.save()
+            return Response({'success': True}, status=201)
+        return Response({'success': False, 'errors': serializer.errors}, status=400)
 
-            try:
-                project_instance = Project.objects.get(id=project_id)
-            except Project.DoesNotExist:
-                return JsonResponse({'success': False, 'error': 'Project not found.'}, status=404)
-            except ValueError:
-                return JsonResponse({'success': False, 'error': 'Invalid Project ID format.'}, status=400)
+    def put(self, request, entry_id=None):
+        if entry_id is None:
+            return Response({'success': False, 'error': 'PUT требует ID записи'}, status=400)
 
-            TimeSheetItem.objects.create(
-                date=date_val,
-                worker=request.user,
-                project=project_instance,
-                hours_number=hours_float,
-                comment=comment_val
-            )
-            return JsonResponse({'success': True})
-        except json.JSONDecodeError:
-            return JsonResponse({'success': False, 'error': 'Invalid JSON.'}, status=400)
-        except Exception as e:
-            print(f"Error in add_timesheet_entry: {type(e).__name__} - {e}")
-            return JsonResponse({'success': False, 'error': f'An unexpected error occurred: {str(e)}'}, status=500)
-    return JsonResponse({'success': False, 'error': 'Invalid request method.'}, status=405)
-
-
-@login_required
-@require_POST
-def delete_timesheet_entry(request, entry_id):
-    try:
         entry = get_object_or_404(TimeSheetItem, id=entry_id)
-
         if entry.worker != request.user and not request.user.is_staff:
-            return JsonResponse({'success': False, 'error': 'У вас нет прав на удаление этой записи.'}, status=403)
+            return Response({'success': False, 'error': 'Нет прав на редактирование.'}, status=403)
+
+        serializer = TimeSheetItemSerializer(entry, data=request.data, context={'request': request})
+        if serializer.is_valid():
+            serializer.save()
+            return Response({
+                'success': True,
+                'message': 'Запись обновлена.',
+                'entry': serializer.data
+            })
+        return Response({'success': False, 'errors': serializer.errors}, status=400)
+
+    def delete(self, request, entry_id=None):
+        print(f"DELETE request received for entry_id={entry_id} by user={request.user}")
+
+        if entry_id is None:
+            return Response({'success': False, 'error': 'DELETE требует ID записи'}, status=400)
+
+        entry = get_object_or_404(TimeSheetItem, id=entry_id)
+        if entry.worker != request.user and not request.user.is_staff:
+            return Response({'success': False, 'error': 'Нет прав на удаление.'}, status=403)
 
         entry.delete()
-        return JsonResponse({'success': True, 'message': 'Запись успешно удалена.'})
-    except Exception as e:
-        print(f"Ошибка при удалении записи {entry_id}: {e}")
-        return JsonResponse({'success': False, 'error': str(e)}, status=500)
-
-
-@login_required
-@require_POST
-def update_timesheet_entry(request, entry_id):
-    try:
-        entry = get_object_or_404(TimeSheetItem, id=entry_id)
-
-        if entry.worker != request.user and not request.user.is_staff:
-            return JsonResponse({'success': False, 'error': 'У вас нет прав на редактирование этой записи.'},
-                                status=403)
-
-        data = json.loads(request.body.decode('utf-8'))
-
-        date_str = data.get('date')
-        project_id_val = data.get('project_id')
-        hours_val = data.get('hours_number')
-        comment_val = data.get('comment', entry.comment)
-
-        if not all([date_str, project_id_val, hours_val is not None]):
-            missing = [f for f, v in [('date', date_str), ('project_id', project_id_val), ('hours_number', hours_val)]
-                       if not v and v is not None]
-            return JsonResponse({'success': False, 'error': f'Отсутствуют обязательные поля: {", ".join(missing)}'},
-                                status=400)
-
-        try:
-            date_obj = datetime.strptime(date_str, '%Y-%m-%d').date()
-        except ValueError:
-            return JsonResponse({'success': False, 'error': 'Неверный формат даты. Используйте ГГГГ-ММ-ДД.'},
-                                status=400)
-
-        try:
-            hours_float = float(hours_val)
-            if hours_float < 0:
-                return JsonResponse({'success': False, 'error': 'Часы не могут быть отрицательными.'}, status=400)
-        except ValueError:
-            return JsonResponse({'success': False, 'error': 'Неверный формат количества часов.'}, status=400)
-
-        try:
-            project_instance = Project.objects.get(id=project_id_val)
-        except Project.DoesNotExist:
-            return JsonResponse({'success': False, 'error': 'Проект не найден.'}, status=404)
-        except ValueError:
-            return JsonResponse({'success': False, 'error': 'Неверный ID проекта.'}, status=400)
-
-        entry.date = date_obj
-        entry.project = project_instance
-        entry.hours_number = hours_float
-        entry.comment = comment_val
-        entry.save()
-
-        return JsonResponse({
-            'success': True,
-            'message': 'Запись успешно обновлена.',
-            'entry': {
-                'id': entry.id,
-                'date': entry.date.strftime('%Y-%m-%d'),
-                'worker_username': entry.worker.username,
-                'project_name': entry.project.name,
-                'project_id': entry.project.id,
-                'hours_number': entry.hours_number,
-                'comment': entry.comment
-            }
-        })
-    except json.JSONDecodeError:
-        return JsonResponse({'success': False, 'error': 'Неверный JSON.'}, status=400)
-    except Exception as e:
-        print(f"Ошибка при обновлении записи {entry_id}: {type(e).__name__} - {e}")
-        return JsonResponse({'success': False, 'error': str(e)}, status=500)
+        return Response({'success': True, 'message': 'Запись удалена.'})
 
 
 @login_required

@@ -37,7 +37,7 @@ export function initializeTimesheetCrud(projectsData, csrfToken, addEntryUrl, cu
             const deleteUrl = deleteEntryUrlTemplate.replace('0', entryId);
 
             fetch(deleteUrl, {
-                method: 'POST',
+                method: 'DELETE',
                 headers: {
                     'X-CSRFToken': csrfToken,
                     'Content-Type': 'application/json'
@@ -116,8 +116,10 @@ export function initializeTimesheetCrud(projectsData, csrfToken, addEntryUrl, cu
 
             const updateUrl = updateEntryUrlTemplate.replace('0', entryId);
 
+            console.log("Updating:    ", updateUrl);
+
             fetch(updateUrl, {
-                method: 'POST',
+                method: 'PUT',
                 headers: {
                     'Content-Type': 'application/json',
                     'X-CSRFToken': csrfToken,

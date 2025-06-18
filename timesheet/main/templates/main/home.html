@@ -88,10 +88,10 @@
             {% endfor %}
         ];
         window.csrfToken = "{{ csrf_token }}";
-        window.addEntryUrl = "{% url 'add_timesheet_entry' %}";
-        window.currentUserUsername = "{{ user.username|escapejs }}"; // Use user.username directly
-        window.deleteEntryUrlTemplate = "{% url 'delete_timesheet_entry' 0 %}";
-        window.updateEntryUrlTemplate = "{% url 'update_timesheet_entry' 0 %}";
+        window.addEntryUrl = "{% url 'timesheet_add' %}";
+        window.currentUserUsername = "{{ user.username|escapejs }}";
+        window.deleteEntryUrlTemplate = "{% url 'timesheet_modify' 0 %}";
+        window.updateEntryUrlTemplate = "{% url 'timesheet_modify' 0 %}";
     </script>
     <script type="module" src="{% static 'main/js/table/main.js' %}"></script>
 

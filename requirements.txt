@@ -1,4 +1,6 @@
-Django>=4.2,<4.3
+Django~=5.2.1
 gunicorn
-dotenv
+dotenv~=0.9.9
 psycopg2-binary
+djangorestframework~=3.16.0
+python-dotenv~=1.1.0
