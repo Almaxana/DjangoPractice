@@ -1,7 +1,9 @@
+import openpyxl
 from django.contrib import messages
+from django.contrib.admin.views.decorators import staff_member_required
 from django.contrib.auth import login
+from django.http import HttpResponse
 from django.shortcuts import redirect, get_object_or_404
-
 from django.shortcuts import render
 from django.contrib.auth.decorators import login_required
 from rest_framework.permissions import IsAuthenticated
@@ -131,3 +133,33 @@ class TimeSheetEntryView(APIView):
 @login_required
 def logout_page_view(request):
     return render(request, 'main/logout_page.html')
+
+
+@staff_member_required
+def export_timesheet_excel(request):
+    wb = openpyxl.Workbook()
+    ws = wb.active
+    ws.title = "Timesheet"
+
+    columns = ['ID', 'Дата', 'Сотрудник', 'Проект', 'Часы', 'Комментарий', 'Статус']
+    ws.append(columns)
+
+    timesheets = TimeSheetItem.objects.select_related('worker', 'project').all().order_by('date')
+
+    for item in timesheets:
+        ws.append([
+            item.id,
+            item.date.strftime("%Y-%m-%d"),
+            item.worker.username,
+            item.project.name,
+            item.hours_number,
+            item.comment,
+            item.approval_status,
+        ])
+
+    response = HttpResponse(
+        content_type='application/vnd.openxmlformats-officedocument.spreadsheetml.sheet'
+    )
+    response['Content-Disposition'] = 'attachment; filename=timesheet.xlsx'
+    wb.save(response)
+    return response

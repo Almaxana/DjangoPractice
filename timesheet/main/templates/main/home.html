@@ -39,6 +39,14 @@
             <button id="apply-filters-btn" class="filter-button">
                 <i class="fas fa-filter"></i> Применить
             </button>
+
+
+            {% if user.is_staff %}
+                <a href="{% url 'export_timesheet_excel' %}" class="button" style="margin-bottom: 0px">
+                    <i class="fas fa-file-excel"></i> Экспорт в Excel
+                </a>
+            {% endif %}
+
         </div>
 
         <button id="add-row-btn" class="button" type="button">
