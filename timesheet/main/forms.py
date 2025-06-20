@@ -13,7 +13,6 @@ class CustomUserCreationForm(UserCreationForm):
         },
         widget=forms.TextInput(attrs={'autocapitalize': 'none'})
     )
-    position = forms.CharField(max_length=100, label="Должность", required=False,)
 
     class Meta(UserCreationForm.Meta):
         model = Worker

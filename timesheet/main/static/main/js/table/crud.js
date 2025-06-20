@@ -79,7 +79,7 @@ export function initializeTimesheetCrud(projectsData, csrfToken, addEntryUrl, cu
             project: cells[2].textContent.trim(),
             hours: cells[3].textContent.trim(),
             comment: cells[4].textContent.trim(),
-            actions: cells[5].innerHTML
+            actions: cells[6].innerHTML
         };
 
         const currentProject = projectsData.find(p => p.name === originalValues.project);
@@ -94,7 +94,7 @@ export function initializeTimesheetCrud(projectsData, csrfToken, addEntryUrl, cu
         cells[2].innerHTML = `<select name="edit-project" class="form-control form-control-sm">${projectOptionsHTML}</select>`;
         cells[3].innerHTML = `<input type="number" name="edit-hours" value="${originalValues.hours}" min="0" step="0.5" class="form-control form-control-sm">`;
         cells[4].innerHTML = `<input type="text" name="edit-comment" value="${originalValues.comment}" class="form-control form-control-sm">`;
-        cells[5].innerHTML = `
+        cells[6].innerHTML = `
             <button class="button save-edit-btn" title="Сохранить"><i class="fas fa-check"></i></button>
             <button class="button cancel-edit-btn" title="Отмена"><i class="fas fa-times"></i></button>
         `;
@@ -115,8 +115,6 @@ export function initializeTimesheetCrud(projectsData, csrfToken, addEntryUrl, cu
             }
 
             const updateUrl = updateEntryUrlTemplate.replace('0', entryId);
-
-            console.log("Updating:    ", updateUrl);
 
             fetch(updateUrl, {
                 method: 'PUT',
@@ -141,7 +139,8 @@ export function initializeTimesheetCrud(projectsData, csrfToken, addEntryUrl, cu
                     cells[2].textContent = data.entry.project_name;
                     cells[3].textContent = data.entry.hours_number;
                     cells[4].textContent = data.entry.comment;
-                    cells[5].innerHTML = originalValues.actions;
+                    cells[5].textContent = data.entry.approval_status;
+                    cells[6].innerHTML = originalValues.actions;
 
                     row.classList.remove('editing');
                     row.querySelector('.edit-row-btn').addEventListener('click', handleEditClick);
@@ -161,7 +160,7 @@ export function initializeTimesheetCrud(projectsData, csrfToken, addEntryUrl, cu
             cells[2].textContent = originalValues.project;
             cells[3].textContent = originalValues.hours;
             cells[4].textContent = originalValues.comment;
-            cells[5].innerHTML = originalValues.actions;
+            cells[6].innerHTML = originalValues.actions;
 
             row.classList.remove('editing');
             row.querySelector('.edit-row-btn').addEventListener('click', handleEditClick);
@@ -206,7 +205,8 @@ export function initializeTimesheetCrud(projectsData, csrfToken, addEntryUrl, cu
                     </select>
                 </td>
                 <td><input type="number" name="hours_number" min="0" step="0.5" style="width:100%"/></td>
-                <td><input type="text" name="comment" style="width:100%"/></td>
+                <td><input type="text" name="comment" style="width:100%"/>
+                <td>pending</td>
                 <td>
                     <button class="save-row button" title="Сохранить"><i class="fas fa-check"></i></button>
                     <button class="cancel-row button" title="Отменить"><i class="fas fa-times"></i></button>
@@ -287,4 +287,38 @@ export function initializeTimesheetCrud(projectsData, csrfToken, addEntryUrl, cu
     document.querySelectorAll('.edit-row-btn').forEach(button => {
         button.addEventListener('click', handleEditClick);
     });
+
+    document.querySelectorAll('.approve-btn').forEach(button => {
+        button.addEventListener('click', () => updateApprovalStatus(button.dataset.id, 'approved'));
+    });
+
+    document.querySelectorAll('.reject-btn').forEach(button => {
+        button.addEventListener('click', () => updateApprovalStatus(button.dataset.id, 'rejected'));
+    });
+
+    function updateApprovalStatus(entryId, status) {
+        fetch(updateEntryUrlTemplate.replace("0", entryId), {
+            method: 'PUT',
+            headers: {
+                'Content-Type': 'application/json',
+                'X-CSRFToken': csrfToken
+            },
+            body: JSON.stringify({
+                approval_status: status
+            })
+        })
+        .then(res => res.json())
+        .then(data => {
+            if (data.success) {
+                location.reload();
+            } else {
+                alert('Ошибка при обновлении статуса: ' + (data.error || data.errors));
+            }
+        })
+        .catch(err => {
+            console.error("Ошибка:", err);
+            alert("Ошибка сети: " + err.message);
+        });
+    }
+
 }

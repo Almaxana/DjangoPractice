@@ -67,3 +67,16 @@
 .filter-button:hover {
     background-color: #5a6268;
 }
+
+.approve-btn {
+    background-color: #006400FF;
+}
+.approve-btn:hover {
+    background-color: rgba(0, 100, 0, 0.7);
+}
+.reject-btn {
+    background-color: #8B0000FF;
+}
+.reject-btn:hover {
+    background-color: rgba(139, 0, 0, 0.7);
+}

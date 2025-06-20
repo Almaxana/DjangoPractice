@@ -54,6 +54,18 @@ class TimeSheetItem(models.Model):
     hours_number = models.PositiveIntegerField()
     comment = models.CharField(max_length=255, blank=True)
 
+    class ApprovalStatus(models.TextChoices):
+        PENDING = 'pending', 'Ожидает'
+        APPROVED = 'approved', 'Подтверждено'
+        REJECTED = 'rejected', 'Отклонено'
+
+    approval_status = models.CharField(
+        "Статус подтверждения",
+        max_length=20,
+        choices=ApprovalStatus.choices,
+        default=ApprovalStatus.PENDING
+    )
+
     class Meta:
         verbose_name = "Запись о рабочих часах"
         verbose_name_plural = "Записи о рабочих часах"

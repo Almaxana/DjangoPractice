@@ -1,17 +1,9 @@
-import json
-from datetime import datetime
-
 from django.contrib import messages
 from django.contrib.auth import login
-from django.contrib.auth.mixins import LoginRequiredMixin
-from django.http import JsonResponse
 from django.shortcuts import redirect, get_object_or_404
 
 from django.shortcuts import render
 from django.contrib.auth.decorators import login_required
-from django.utils.decorators import method_decorator
-from django.views.decorators.csrf import csrf_exempt
-from rest_framework import status
 from rest_framework.permissions import IsAuthenticated
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -59,6 +51,7 @@ def home(request):
         'employees': employees,
         'current_filters': current_filters,
         'current_user': request.user,
+        'ApprovalStatus': TimeSheetItem.ApprovalStatus
     })
 
 
@@ -101,6 +94,15 @@ class TimeSheetEntryView(APIView):
         entry = get_object_or_404(TimeSheetItem, id=entry_id)
         if entry.worker != request.user and not request.user.is_staff:
             return Response({'success': False, 'error': 'Нет прав на редактирование.'}, status=403)
+
+        if request.user.is_staff and 'approval_status' in request.data:
+            new_status = request.data['approval_status']
+            if new_status not in TimeSheetItem.ApprovalStatus.values:
+                return Response({'success': False, 'error': 'Неверный статус'}, status=400)
+
+            entry.approval_status = new_status
+            entry.save()
+            return Response({'success': True, 'message': f'Статус изменён на {new_status}'})
 
         serializer = TimeSheetItemSerializer(entry, data=request.data, context={'request': request})
         if serializer.is_valid():
