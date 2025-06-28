@@ -10,7 +10,7 @@
 
         <div class="filters">
             <div class="filter-group">
-                {% if user.is_superuser %}
+                {% if user.is_staff %}
                     <label for="employee-filter">Сотрудник:</label>
                     <select id="employee-filter" class="filter-input" name="employee_filter">
                         <option value="">Все сотрудники</option>
@@ -39,7 +39,6 @@
             <button id="apply-filters-btn" class="filter-button">
                 <i class="fas fa-filter"></i> Применить
             </button>
-
 
             {% if user.is_staff %}
                 <a href="{% url 'export_timesheet_excel' %}" class="button" style="margin-bottom: 0px">

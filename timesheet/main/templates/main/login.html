@@ -11,21 +11,16 @@
     {% if form.errors %}
         <div class="alert alert-danger">
             <p>Ваше имя пользователя и пароль не совпали. Пожалуйста, попробуйте еще раз.</p>
-            {% for field, errors_list in form.errors.items %} {# Переименовал errors в errors_list для ясности #}
-                {% for error in errors_list %}
-                    {# Можно выводить ошибки полей более детально, если нужно, но общая уже есть #}
-                    {# <p>{{ field|capfirst }}: {{ error }}</p> #}
-                {% endfor %}
-            {% endfor %}
         </div>
     {% endif %}
 
     {% if next %}
         {% if user.is_authenticated %}
-            <p style="text-align: center; margin-bottom: 15px; color: #6c757d;">Ваш аккаунт не имеет доступа к этой странице. Чтобы продолжить,
-            пожалуйста, войдите с аккаунтом, имеющим доступ.</p>
+            <p style="text-align: center; margin-bottom: 15px; color: #6c757d;">Ваш аккаунт не имеет доступа к
+                этой странице. Чтобы продолжить, пожалуйста, войдите с аккаунтом, имеющим доступ.</p>
         {% else %}
-            <p style="text-align: center; margin-bottom: 15px; color: #6c757d;">Пожалуйста, войдите, чтобы увидеть эту страницу.</p>
+            <p style="text-align: center; margin-bottom: 15px; color: #6c757d;">Пожалуйста, войдите, чтобы увидеть эту
+                страницу.</p>
         {% endif %}
     {% endif %}
 
